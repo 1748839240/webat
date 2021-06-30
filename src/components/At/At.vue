@@ -68,6 +68,7 @@ import {
   onBeforeUnmount,
 } from "vue"
 
+const className = '__at_span'
 export default defineComponent({
   name: "At",
   setup() {
@@ -80,7 +81,7 @@ export default defineComponent({
       visible: false, // 是否显示选择人员弹窗
       // focusEnd: false, // 插入 @ 时光标是否位于文字末尾
       visibleAt: false, // 处理 input 和 selectionchange 事件冲突
-      lastCursorNode: {} as Node, // 光标上一次所在的节点
+      lastCursorInfo: {} as Range, // 光标上一次所在的位置信息
       atIds: [] as Array<string>, // @ 的人员id
     })
 
@@ -169,7 +170,7 @@ export default defineComponent({
       nextTick(() => {
         const x = curporPos.x > 75 ? curporPos.x - 75 : 0
         const y = curporPos.y + curporPos?.height + 8
-        ;(document.getElementsByClassName("atPopover")[0] as HTMLElement).style.transform = `translate3d(${x}px, ${y}px, 0px)`
+          ; (document.getElementsByClassName("atPopover")[0] as HTMLElement).style.transform = `translate3d(${x}px, ${y}px, 0px)`
       })
     }
 
@@ -196,19 +197,19 @@ export default defineComponent({
       // @ 人员信息
       const item = state.list.find((e) => e.id === id) as unknown as Item
       // 要插入的 html
-      const html = `<span id="${atId}" class="at">@${item.name}</span>`
+      const html = `<span id="${atId}" class="${className}">@${item.name}</span>`
       const selection = window.getSelection()
       const range = selection?.getRangeAt(0)
-      const span = document.getElementById(atId)
+      const parent = selection?.focusNode as HTMLElement
       // 选中输入的 @ 符
-      range?.setStart(range?.commonAncestorContainer as Node, state.focusOffset - 1)
-      range?.setEnd(range?.commonAncestorContainer as Node, state.focusOffset)
+      selection?.extend(selection?.focusNode as Node, state.focusOffset - 1);
       // 删除输入的 @ 符
       range?.deleteContents()
       // 向文本节点插入 html（ < 和 > 会被转义为 &lt; 和 &gt; ）
       range?.insertNode(document.createTextNode(html))
       // 将转义后的 html 转换为真正的 html 并插入 dom
-      refAtInput.value.innerHTML = refAtInput.value.innerHTML.replaceAll("&lt;", "<").replaceAll("&gt;", ">") // !!!!!!!!!!!!!!!!!!!!!!!
+      parent.innerHTML = parent.innerHTML.replaceAll("&lt;", "<").replaceAll("&gt;", ">") // !!!!!!!!!!!!!!!!!!!!!!!
+      const span = document.getElementById(atId)
       // 在 @姓名 后添加一个不可见字符串用于防止点击 @姓名 最后一个字符后文字样式收到 @姓名 影响
       insertAfter.call(span, document.createTextNode("\u200b"))
       // 在不可见字符串后面添加一个空格，用于优化用户体验
@@ -225,28 +226,49 @@ export default defineComponent({
 
     // 光标移动事件
     const selectionchange = () => {
-      // 光标移动关闭弹窗
       if (!state.visibleAt) {
         state.visible = false
       }
+      const selection = window.getSelection()
+      if (selection?.focusNode?.parentElement === refAtInput.value) {
+        const range = window.getSelection()?.getRangeAt(0)
+        if (selection?.isCollapsed) {
+          if (selection?.focusNode?.parentElement?.className === className) {
+
+          }
+        } else {
+
+        }
+      }
+      // console.log(window.getSelection())
+      // console.log(window.getSelection()?.getRangeAt(0))
+      // 光标移动关闭弹窗
       // 检查光标位置使得 @姓名 不可点击
-      const range = window.getSelection()?.getRangeAt(0)
+      
       // console.log(range)
       // 如果光标进入 @姓名 中
-      if (range?.collapsed && (range.commonAncestorContainer.parentElement?.tagName === 'SPAN')) {
+      // if (range?.collapsed && (range.commonAncestorContainer.parentElement?.className === className)) {
         // 如果 @姓名 后面的 \u200b 没有了或者 @姓名 中有字符变动，表示删除 @
         // if (range.commonAncestorContainer.parentElement.nextSibling?.nodeValue !== "\u200b") {
         //   range.selectNode(range.commonAncestorContainer.parentElement)
         //   range.deleteContents()
         //   return
         // }
-        console.log(range?.commonAncestorContainer, state.lastCursorNode, state.lastCursorNode.nodeValue === '\u200b')
+        // 如果光标上个位置为空，表示被删除
+        // if (state.lastCursorNode.nodeValue === '') {
+        //   range.selectNode(range.commonAncestorContainer)
+        //   range.deleteContents()
+        // }
+        // if()
+        // console.log(range?.commonAncestorContainer, state.lastCursorNode, state.lastCursorNode.nodeValue === '\u200b')
         // console.log(range.commonAncestorContainer.parentElement.nextSibling?.nodeValue !== "\u200b", 'range.commonAncestorContainer, range.commonAncestorContainer.nextSibling')
         // range.selectNode(range.commonAncestorContainer)
         // range.collapse(true)
-        return
-      }
-      state.lastCursorNode = range?.commonAncestorContainer as Node
+        // return
+      // }
+      // if (range?.commonAncestorContainer.parentElement === refAtInput.value) {
+      //   state.lastCursorNode = range?.commonAncestorContainer as Node
+      // }
     }
     // 监听光标移动
     document.addEventListener('selectionchange', selectionchange, true)
@@ -268,4 +290,10 @@ export default defineComponent({
 
 <style lang="scss" scoped>
 @import "./at.scss";
+::v-deep {
+  .__at_span {
+    color: red;
+    font-weight: bolder;
+  }
+}
 </style>

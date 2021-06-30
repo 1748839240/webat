@@ -22,9 +22,6 @@ body,
 #app {
   height: 100%;
 }
-.at {
-  color: red;
-}
 .flex {
   display: flex;
   align-items: center;
