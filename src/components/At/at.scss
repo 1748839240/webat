@@ -1,0 +1,42 @@
+.at {
+  height: 100%;
+  padding: 8px;
+  overflow: auto;
+  box-sizing: border-box;
+  .tipList,
+  .unAtList,
+  .atedList {
+    margin: 8px 0;
+    .el-card {
+      .el-tag {
+        margin-right: 8px;
+      }
+    }
+  }
+  .atArea {
+    .el-card {
+      .atInputWrapper {
+        position: relative;
+        #atInput {
+          outline: none;
+          font-size: 16px;
+          min-height: 92px;
+          padding: 16px 8px;
+          line-height: 20px;
+          border-radius: 8px;
+          border: 1px solid #efefef;
+          box-sizing: border-box;
+        }
+        .placeholder {
+          top: 16px;
+          left: 10px;
+          cursor: text;
+          color: #aaa;
+          font-size: 16px;
+          user-select: none;
+          position: absolute;
+        }
+      }
+    }
+  }
+}
