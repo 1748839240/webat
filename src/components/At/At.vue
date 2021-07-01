@@ -57,16 +57,8 @@
 
 <script lang="ts">
 import list, { Item } from "./list"
-import { insertAfter } from './util'
-import {
-  ref,
-  reactive,
-  computed,
-  nextTick,
-  onMounted,
-  defineComponent,
-  onBeforeUnmount,
-} from "vue"
+import { insertAfter, isNextSiblings, isPreviousSiblings } from './util'
+import { ref, reactive, computed, nextTick, onMounted, defineComponent, onBeforeUnmount } from "vue"
 
 const className = '__at_span'
 export default defineComponent({
@@ -81,7 +73,10 @@ export default defineComponent({
       visible: false, // 是否显示选择人员弹窗
       // focusEnd: false, // 插入 @ 时光标是否位于文字末尾
       visibleAt: false, // 处理 input 和 selectionchange 事件冲突
-      lastCursorInfo: {} as Range, // 光标上一次所在的位置信息
+      lastCursorInfo: {
+        node: {} as Node,
+        offset: 0,
+      }, // 光标上一次所在的位置信息
       atIds: [] as Array<string>, // @ 的人员id
     })
 
@@ -199,17 +194,20 @@ export default defineComponent({
       // 要插入的 html
       const html = `<span id="${atId}" class="${className}">@${item.name}</span>`
       const selection = window.getSelection()
-      const range = selection?.getRangeAt(0)
-      const parent = selection?.focusNode as HTMLElement
+      const parent = selection?.focusNode?.parentElement as HTMLElement
       // 选中输入的 @ 符
       selection?.extend(selection?.focusNode as Node, state.focusOffset - 1);
       // 删除输入的 @ 符
+      const range = selection?.getRangeAt(0)
       range?.deleteContents()
       // 向文本节点插入 html（ < 和 > 会被转义为 &lt; 和 &gt; ）
       range?.insertNode(document.createTextNode(html))
       // 将转义后的 html 转换为真正的 html 并插入 dom
       parent.innerHTML = parent.innerHTML.replaceAll("&lt;", "<").replaceAll("&gt;", ">") // !!!!!!!!!!!!!!!!!!!!!!!
       const span = document.getElementById(atId)
+      if (span?.parentNode?.firstChild === span) {
+        span?.parentNode.insertBefore(document.createTextNode("\u200b"), span)
+      }
       // 在 @姓名 后添加一个不可见字符串用于防止点击 @姓名 最后一个字符后文字样式收到 @姓名 影响
       insertAfter.call(span, document.createTextNode("\u200b"))
       // 在不可见字符串后面添加一个空格，用于优化用户体验
@@ -224,50 +222,81 @@ export default defineComponent({
       range?.collapse(false)
     }
 
-    // 光标移动事件
+    // selection 变动事件
     const selectionchange = () => {
+      // selection 发生变动，关闭选择框
       if (!state.visibleAt) {
         state.visible = false
       }
       const selection = window.getSelection()
-      if (selection?.focusNode?.parentElement === refAtInput.value) {
+      // 只处理输入框之内的 selection 变动
+      // console.log(selection?.focusNode?.parentElement === refAtInput.value, selection?.focusNode?.parentElement?.className === className)
+      if ((selection?.focusNode?.parentElement === refAtInput.value) || (selection?.focusNode?.parentElement?.className === className)) {
         const range = window.getSelection()?.getRangeAt(0)
+        // 光标移动
         if (selection?.isCollapsed) {
-          if (selection?.focusNode?.parentElement?.className === className) {
-
+          // 当光标移动至 @姓名 中
+          const span = selection?.focusNode?.parentElement
+          if (span?.className === className) {
+            console.log(state.lastCursorInfo, 'state.lastCursorInfo')
+            // 光标进入 @姓名 切其后节点为没有首字符不为 \u200b 表示删除
+            if (!span.nextSibling?.nodeValue?.startsWith('\u200b')) {
+              range?.selectNode(span)
+              range?.deleteContents()
+              // 否则选中节点
+            } else {
+              range?.setStartBefore(span)
+              range?.setEndAfter(span.nextSibling)
+              range?.setEnd(span.nextSibling, 1)
+              // 如果是从右侧进入
+              if ((state.lastCursorInfo.node === span.nextSibling) && (state.lastCursorInfo.offset === 1)) {
+                range?.collapse(true)
+                // 直接进入左侧
+                state.lastCursorInfo = { node: span.previousSibling as Node, offset: span.previousSibling?.nodeValue?.length || 0 }
+                return
+              }
+              // 如果是从左侧进入
+              if ((state.lastCursorInfo.node === span.previousSibling) && (state.lastCursorInfo.offset === span.previousSibling.nodeValue?.length)) {
+                range?.collapse(false)
+                // 直接进入右侧
+                state.lastCursorInfo = { node: span.nextSibling, offset: 1 }
+                return
+              }
+            }
           }
+          state.lastCursorInfo = { node: selection?.focusNode as Node, offset: range?.endOffset || 0 }
+
+          // 选择文字变动
         } else {
 
         }
+        // 缓存 range 用于判断光标进入位置
       }
       // console.log(window.getSelection())
       // console.log(window.getSelection()?.getRangeAt(0))
       // 光标移动关闭弹窗
       // 检查光标位置使得 @姓名 不可点击
-      
+
       // console.log(range)
       // 如果光标进入 @姓名 中
       // if (range?.collapsed && (range.commonAncestorContainer.parentElement?.className === className)) {
-        // 如果 @姓名 后面的 \u200b 没有了或者 @姓名 中有字符变动，表示删除 @
-        // if (range.commonAncestorContainer.parentElement.nextSibling?.nodeValue !== "\u200b") {
-        //   range.selectNode(range.commonAncestorContainer.parentElement)
-        //   range.deleteContents()
-        //   return
-        // }
-        // 如果光标上个位置为空，表示被删除
-        // if (state.lastCursorNode.nodeValue === '') {
-        //   range.selectNode(range.commonAncestorContainer)
-        //   range.deleteContents()
-        // }
-        // if()
-        // console.log(range?.commonAncestorContainer, state.lastCursorNode, state.lastCursorNode.nodeValue === '\u200b')
-        // console.log(range.commonAncestorContainer.parentElement.nextSibling?.nodeValue !== "\u200b", 'range.commonAncestorContainer, range.commonAncestorContainer.nextSibling')
-        // range.selectNode(range.commonAncestorContainer)
-        // range.collapse(true)
-        // return
+      // 如果 @姓名 后面的 \u200b 没有了或者 @姓名 中有字符变动，表示删除 @
+      // if (range.commonAncestorContainer.parentElement.nextSibling?.nodeValue !== "\u200b") {
+      //   range.selectNode(range.commonAncestorContainer.parentElement)
+      //   range.deleteContents()
+      //   return
       // }
-      // if (range?.commonAncestorContainer.parentElement === refAtInput.value) {
-      //   state.lastCursorNode = range?.commonAncestorContainer as Node
+      // 如果光标上个位置为空，表示被删除
+      // if (state.lastCursorNode.nodeValue === '') {
+      //   range.selectNode(range.commonAncestorContainer)
+      //   range.deleteContents()
+      // }
+      // if()
+      // console.log(range?.commonAncestorContainer, state.lastCursorNode, state.lastCursorNode.nodeValue === '\u200b')
+      // console.log(range.commonAncestorContainer.parentElement.nextSibling?.nodeValue !== "\u200b", 'range.commonAncestorContainer, range.commonAncestorContainer.nextSibling')
+      // range.selectNode(range.commonAncestorContainer)
+      // range.collapse(true)
+      // return
       // }
     }
     // 监听光标移动
@@ -275,8 +304,15 @@ export default defineComponent({
     onBeforeUnmount(() => {
       document.removeEventListener('selectionchange', selectionchange)
     })
+    // 点击 @姓名 选中 @姓名
+    const click = (e: MouseEvent) => {
+      if (((e.target as HTMLElement).className === className)) {
+        window.getSelection()?.getRangeAt(0).selectNode(e.target as Node)
+      }
+    }
     return {
       state,
+      click,
       atedList,
       unAtList,
       selectAt,
