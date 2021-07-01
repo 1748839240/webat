@@ -191,8 +191,9 @@ export default defineComponent({
       element.innerText = `@${item.name}`
       range?.insertNode(element)
       const span = document.getElementById(id)
+      Array.from(span?.parentNode?.childNodes || []).forEach(node => ((node.nodeType === 3) && ((node as unknown as string).length === 0)) && node.remove())
       // 如果 @姓名 位于首位
-      if (span?.parentNode?.firstElementChild === span) {
+      if (span?.parentNode?.firstChild === span) {
         // 插入一个不可见字符串
         span?.parentNode.insertBefore(document.createTextNode("\u200b"), span)
       }
@@ -287,8 +288,7 @@ export default defineComponent({
 
     onBeforeUnmount(() => {
       document.removeEventListener('selectionchange', selectionchange)
-      // 之后，可停止观察
-      // observer.disconnect();
+      state.observer.disconnect()
     })
     // 点击 @姓名 选中 @姓名
     const click = (e: MouseEvent) => {
