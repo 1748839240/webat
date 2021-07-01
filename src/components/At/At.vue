@@ -32,7 +32,7 @@
                 </template>
                 <div v-for="item in unAtList" :key="item.id" class="flex flex_sb bb p8">
                   <span>{{ item.name }}</span>
-                  <el-button size="mini" @click="selectAt(item.id)">选择</el-button>
+                  <el-button size="mini" @click="selectAt(item)">选择</el-button>
                 </div>
               </el-card>
             </template>
@@ -71,7 +71,7 @@ export default defineComponent({
       inputText: "", // 展示的文字
       focusOffset: 0, // 缓存光标位置
       visible: false, // 是否显示选择人员弹窗
-      // focusEnd: false, // 插入 @ 时光标是否位于文字末尾
+      observer: {} as MutationObserver, // dom 监听器
       visibleAt: false, // 处理 input 和 selectionchange 事件冲突
       lastCursorInfo: {
         node: {} as Node,
@@ -86,9 +86,6 @@ export default defineComponent({
     // 已选人员列表
     const unAtList = computed(() => state.list.filter((e) => !state.atIds.includes(e.id)))
 
-    // 自动聚焦
-    onMounted(() => refAtInput.value.focus())
-
     // 输入监听
     const inputing = (e: InputEvent) => {
       // 保存实时输入信息用于控制 placeholder 状态
@@ -101,32 +98,22 @@ export default defineComponent({
       // console.log(e.data)
       // console.log((e.target as Element).innerHTML)
       // 保存 innerHTML
-      state.inputText = (e.target as Element).innerHTML
       // 如果触发 @
       if (e.data === "@") {
-        // console.log(state.inputing)
         // input 先于 selectionchange 触发
         state.visibleAt = true
         setTimeout(() => {
           state.visibleAt = false
         })
-        // 保存光标位置
+        // 缓存光标位置
         state.focusOffset = window.getSelection()?.focusOffset || 0
-        // // 如果光标位置位于最后一个节点
-        // const lastChild = window.getSelection()?.anchorNode === refAtInput.value.lastChild
-        // // 如果光标位于当前节点的最后一个位置
-        // const lastFocus = window.getSelection()?.focusOffset === (window.getSelection()?.anchorNode as unknown as string).length
-        // // 则表示当前光标位于最后位置
-        // if (lastChild && lastFocus) {
-        //   state.focusEnd = true
-        // }
         // 打开选择弹窗
         openPopover()
+        return
       } else {
         state.visible = false
-        document.dispatchEvent(new Event('selectionchange'))
-        // console.log((e.target as Element).innerHTML, 'inputing')
       }
+      // state.inputText = (e.target as Element).innerHTML
     }
 
     // // 粘贴处理（ webkit 浏览器可以用 contenteditable="plaintext-only" 设置 contenteditable 粘贴文字，此方法可以用于火狐浏览器 hack）
@@ -182,17 +169,13 @@ export default defineComponent({
     }
 
     // 选择 @
-    const selectAt = (id: string) => {
+    const selectAt = (item: Item) => {
       // 关闭选择弹窗
       closePopover()
       // 为即将插入的 span 生成一个 id，便于后面找到
-      const atId = Date.now().toString()
-      // 记录 @ 人员 id
-      state.atIds.push(id)
+      const id = Date.now().toString()
       // @ 人员信息
-      const item = state.list.find((e) => e.id === id) as unknown as Item
-      // 要插入的 html
-      const html = `<span id="${atId}" class="${className}">@${item.name}</span>`
+      // 要插入的元素
       const selection = window.getSelection()
       const parent = selection?.focusNode?.parentElement as HTMLElement
       // 选中输入的 @ 符
@@ -200,12 +183,17 @@ export default defineComponent({
       // 删除输入的 @ 符
       const range = selection?.getRangeAt(0)
       range?.deleteContents()
-      // 向文本节点插入 html（ < 和 > 会被转义为 &lt; 和 &gt; ）
-      range?.insertNode(document.createTextNode(html))
-      // 将转义后的 html 转换为真正的 html 并插入 dom
-      parent.innerHTML = parent.innerHTML.replaceAll("&lt;", "<").replaceAll("&gt;", ">") // !!!!!!!!!!!!!!!!!!!!!!!
-      const span = document.getElementById(atId)
-      if (span?.parentNode?.firstChild === span) {
+      // 向文本节点插入元素节点
+      const element = document.createElement('SPAN')
+      element.id = id
+      element.className = className
+      element.dataset.id = item.id
+      element.innerText = `@${item.name}`
+      range?.insertNode(element)
+      const span = document.getElementById(id)
+      // 如果 @姓名 位于首位
+      if (span?.parentNode?.firstElementChild === span) {
+        // 插入一个不可见字符串
         span?.parentNode.insertBefore(document.createTextNode("\u200b"), span)
       }
       // 在 @姓名 后添加一个不可见字符串用于防止点击 @姓名 最后一个字符后文字样式收到 @姓名 影响
@@ -229,8 +217,6 @@ export default defineComponent({
         state.visible = false
       }
       const selection = window.getSelection()
-      // 只处理输入框之内的 selection 变动
-      // console.log(selection?.focusNode?.parentElement === refAtInput.value, selection?.focusNode?.parentElement?.className === className)
       if ((selection?.focusNode?.parentElement === refAtInput.value) || (selection?.focusNode?.parentElement?.className === className)) {
         const range = window.getSelection()?.getRangeAt(0)
         // 光标移动
@@ -270,39 +256,39 @@ export default defineComponent({
         } else {
 
         }
-        // 缓存 range 用于判断光标进入位置
       }
-      // console.log(window.getSelection())
-      // console.log(window.getSelection()?.getRangeAt(0))
-      // 光标移动关闭弹窗
-      // 检查光标位置使得 @姓名 不可点击
-
-      // console.log(range)
-      // 如果光标进入 @姓名 中
-      // if (range?.collapsed && (range.commonAncestorContainer.parentElement?.className === className)) {
-      // 如果 @姓名 后面的 \u200b 没有了或者 @姓名 中有字符变动，表示删除 @
-      // if (range.commonAncestorContainer.parentElement.nextSibling?.nodeValue !== "\u200b") {
-      //   range.selectNode(range.commonAncestorContainer.parentElement)
-      //   range.deleteContents()
-      //   return
-      // }
-      // 如果光标上个位置为空，表示被删除
-      // if (state.lastCursorNode.nodeValue === '') {
-      //   range.selectNode(range.commonAncestorContainer)
-      //   range.deleteContents()
-      // }
-      // if()
-      // console.log(range?.commonAncestorContainer, state.lastCursorNode, state.lastCursorNode.nodeValue === '\u200b')
-      // console.log(range.commonAncestorContainer.parentElement.nextSibling?.nodeValue !== "\u200b", 'range.commonAncestorContainer, range.commonAncestorContainer.nextSibling')
-      // range.selectNode(range.commonAncestorContainer)
-      // range.collapse(true)
-      // return
-      // }
     }
-    // 监听光标移动
-    document.addEventListener('selectionchange', selectionchange, true)
+
+    onMounted(() => {
+      // 自动聚焦
+      refAtInput.value.focus()
+      // 监听光标移动
+      document.addEventListener('selectionchange', selectionchange, true)
+
+      state.observer = new MutationObserver(function (mutationsList) {
+        // 添加的元素
+        const addElements = Array.from(mutationsList.map(e => Array.from(e.addedNodes))).flat().filter(e => (e as HTMLElement).tagName) as Array<HTMLElement>
+        // 添加的 @姓名 元素
+        const addAtIds = addElements.filter(e => (e.tagName === 'SPAN') && (e.className === className)).map(e => e.dataset.id) as Array<string>
+        // 添加的其他元素
+        const addOthers = addElements.filter(e => !((e.tagName === 'SPAN') && (e.className === className)))
+        // 删除其他元素防止XSS攻击
+        addOthers.forEach(element => element.remove())
+        // 添加 @
+        addAtIds.forEach(id => !state.atIds.includes(id) && state.atIds.push(id))
+
+        // 删除的元素
+        const delElements = Array.from(mutationsList.map(e => Array.from(e.removedNodes))).flat().filter(e => (e as HTMLElement).tagName) as Array<HTMLElement>
+        const delAtIds = delElements.filter(e => (e.tagName === 'SPAN') && (e.className === className)).map(e => e.dataset.id) as Array<string>
+        delAtIds.forEach(id => (state.atIds.indexOf(id) > -1) && state.atIds.splice(state.atIds.indexOf(id), 1))
+      })
+      state.observer.observe(refAtInput.value, { subtree: true, childList: true })
+    })
+
     onBeforeUnmount(() => {
       document.removeEventListener('selectionchange', selectionchange)
+      // 之后，可停止观察
+      // observer.disconnect();
     })
     // 点击 @姓名 选中 @姓名
     const click = (e: MouseEvent) => {
