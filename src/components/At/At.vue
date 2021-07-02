@@ -73,10 +73,7 @@ export default defineComponent({
       visible: false, // 是否显示选择人员弹窗
       observer: {} as MutationObserver, // dom 监听器
       visibleAt: false, // 处理 input 和 selectionchange 事件冲突
-      lastCursorInfo: {
-        node: {} as Node,
-        offset: 0,
-      }, // 光标上一次所在的位置信息
+      lastCursorInfo: { node: {} as Node, offset: 0, }, // 光标上一次所在的位置信息
       atIds: [] as Array<string>, // @ 的人员id
     })
 
@@ -94,10 +91,6 @@ export default defineComponent({
       if (e.inputType === "insertCompositionText") {
         return
       }
-      // console.log(e)
-      // console.log(e.data)
-      // console.log((e.target as Element).innerHTML)
-      // 保存 innerHTML
       // 如果触发 @
       if (e.data === "@") {
         // input 先于 selectionchange 触发
@@ -106,14 +99,13 @@ export default defineComponent({
           state.visibleAt = false
         })
         // 缓存光标位置
-        state.focusOffset = window.getSelection()?.focusOffset || 0
+        state.focusOffset = window.getSelection()?.focusOffset as number
         // 打开选择弹窗
         openPopover()
         return
       } else {
         state.visible = false
       }
-      // state.inputText = (e.target as Element).innerHTML
     }
 
     // // 粘贴处理（ webkit 浏览器可以用 contenteditable="plaintext-only" 设置 contenteditable 粘贴文字，此方法可以用于火狐浏览器 hack）
@@ -210,22 +202,21 @@ export default defineComponent({
       // 光标移动到末尾
       range?.collapse(false)
     }
-
+    let _t = true
     // selection 变动事件
-    const selectionchange = () => {
+    const selectionchange = (e: Event) => {
       // selection 发生变动，关闭选择框
       if (!state.visibleAt) {
         state.visible = false
       }
       const selection = window.getSelection()
+      const range = selection?.getRangeAt(0)
       if ((selection?.focusNode?.parentElement === refAtInput.value) || (selection?.focusNode?.parentElement?.className === className)) {
-        const range = window.getSelection()?.getRangeAt(0)
         // 光标移动
         if (selection?.isCollapsed) {
           // 当光标移动至 @姓名 中
           const span = selection?.focusNode?.parentElement
           if (span?.className === className) {
-            console.log(state.lastCursorInfo, 'state.lastCursorInfo')
             // 光标进入 @姓名 切其后节点为没有首字符不为 \u200b 表示删除
             if (!span.nextSibling?.nodeValue?.startsWith('\u200b')) {
               range?.selectNode(span)
@@ -239,7 +230,7 @@ export default defineComponent({
               if ((state.lastCursorInfo.node === span.nextSibling) && (state.lastCursorInfo.offset === 1)) {
                 range?.collapse(true)
                 // 直接进入左侧
-                state.lastCursorInfo = { node: span.previousSibling as Node, offset: span.previousSibling?.nodeValue?.length || 0 }
+                state.lastCursorInfo = { node: span.previousSibling as Node, offset: span.previousSibling?.nodeValue?.length as number }
                 return
               }
               // 如果是从左侧进入
@@ -251,11 +242,22 @@ export default defineComponent({
               }
             }
           }
-          state.lastCursorInfo = { node: selection?.focusNode as Node, offset: range?.endOffset || 0 }
+          state.lastCursorInfo = { node: selection?.focusNode as Node, offset: range?.endOffset as number }
 
           // 选择文字变动
         } else {
-
+          const focusNode = selection?.focusNode as Node
+          const span = focusNode?.parentElement as HTMLElement
+          // 选中范围移动到 @姓名
+          if ((span?.className === className)) {
+            if (isNextSiblings.call(span, range?.endContainer as Node)) {
+              selection?.extend(span.previousSibling as Node, span.previousSibling?.nodeValue?.length)
+              return
+            }
+            if (isPreviousSiblings.call(span, range?.startContainer as Node)) {
+              selection?.extend(span.nextSibling as Node, 1)
+            }
+          }
         }
       }
     }
