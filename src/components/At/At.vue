@@ -37,7 +37,7 @@
               </el-card>
             </template>
             <template #reference>
-              <div id="atInput" ref="refAtInput" contenteditable="plaintext-only" @input="inputing" @click="click"
+              <div id="atInput" ref="refAtInput" contenteditable="plaintext-only" @input="inputing"
                 @compositionend="inputing" />
             </template>
           </el-popover>
@@ -72,8 +72,6 @@ export default defineComponent({
       focusOffset: 0, // 缓存光标位置
       visible: false, // 是否显示选择人员弹窗
       observer: {} as MutationObserver, // dom 监听器
-      visibleAt: false, // 处理 input 和 selectionchange 事件冲突
-      lastCursorInfo: { node: {} as Node, offset: 0, }, // 光标上一次所在的位置信息
       atIds: [] as Array<string>, // @ 的人员id
     })
 
@@ -93,12 +91,7 @@ export default defineComponent({
       }
       // 如果触发 @
       if (e.data === "@") {
-        // input 先于 selectionchange 触发
-        state.visibleAt = true
-        setTimeout(() => {
-          state.visibleAt = false
-        })
-        // 缓存光标位置
+        // // 缓存光标位置
         state.focusOffset = window.getSelection()?.focusOffset as number
         // 打开选择弹窗
         openPopover()
@@ -180,94 +173,15 @@ export default defineComponent({
       element.id = id
       element.className = className
       element.dataset.id = item.id
+      element.contentEditable = 'false'
       element.innerText = `@${item.name}`
       range?.insertNode(element)
-      const span = document.getElementById(id)
-      Array.from(span?.parentNode?.childNodes || []).forEach(node => ((node.nodeType === 3) && ((node as unknown as string).length === 0)) && node.remove())
-      // 如果 @姓名 位于首位
-      if (span?.parentNode?.firstChild === span) {
-        // 插入一个不可见字符串
-        span?.parentNode.insertBefore(document.createTextNode("\u200b"), span)
-      }
-      // 在 @姓名 后添加一个不可见字符串用于防止点击 @姓名 最后一个字符后文字样式收到 @姓名 影响
-      insertAfter.call(span, document.createTextNode("\u200b"))
-      // 在不可见字符串后面添加一个空格，用于优化用户体验
-      range?.selectNode(span?.nextSibling as Node)
-      // 删除所有 range
-      selection?.removeAllRanges()
-      // 添加想要光标移动的位置
-      selection?.addRange(range as Range)
-      // 选中 range
-      selection?.collapse(span?.nextSibling as Node, 1)
-      // 光标移动到末尾
-      range?.collapse(false)
-    }
-    let _t = true
-    // selection 变动事件
-    const selectionchange = (e: Event) => {
-      // selection 发生变动，关闭选择框
-      if (!state.visibleAt) {
-        state.visible = false
-      }
-      const selection = window.getSelection()
-      const range = selection?.getRangeAt(0)
-      if ((selection?.focusNode?.parentElement === refAtInput.value) || (selection?.focusNode?.parentElement?.className === className)) {
-        // 光标移动
-        if (selection?.isCollapsed) {
-          // 当光标移动至 @姓名 中
-          const span = selection?.focusNode?.parentElement
-          if (span?.className === className) {
-            // 光标进入 @姓名 切其后节点为没有首字符不为 \u200b 表示删除
-            if (!span.nextSibling?.nodeValue?.startsWith('\u200b')) {
-              range?.selectNode(span)
-              range?.deleteContents()
-              // 否则选中节点
-            } else {
-              range?.setStartBefore(span)
-              range?.setEndAfter(span.nextSibling)
-              range?.setEnd(span.nextSibling, 1)
-              // 如果是从右侧进入
-              if ((state.lastCursorInfo.node === span.nextSibling) && (state.lastCursorInfo.offset === 1)) {
-                range?.collapse(true)
-                // 直接进入左侧
-                state.lastCursorInfo = { node: span.previousSibling as Node, offset: span.previousSibling?.nodeValue?.length as number }
-                return
-              }
-              // 如果是从左侧进入
-              if ((state.lastCursorInfo.node === span.previousSibling) && (state.lastCursorInfo.offset === span.previousSibling.nodeValue?.length)) {
-                range?.collapse(false)
-                // 直接进入右侧
-                state.lastCursorInfo = { node: span.nextSibling, offset: 1 }
-                return
-              }
-            }
-          }
-          state.lastCursorInfo = { node: selection?.focusNode as Node, offset: range?.endOffset as number }
-
-          // 选择文字变动
-        } else {
-          const focusNode = selection?.focusNode as Node
-          const span = focusNode?.parentElement as HTMLElement
-          // 选中范围移动到 @姓名
-          if ((span?.className === className)) {
-            if (isNextSiblings.call(span, range?.endContainer as Node)) {
-              selection?.extend(span.previousSibling as Node, span.previousSibling?.nodeValue?.length)
-              return
-            }
-            if (isPreviousSiblings.call(span, range?.startContainer as Node)) {
-              selection?.extend(span.nextSibling as Node, 1)
-            }
-          }
-        }
-      }
+      selection?.collapseToEnd()
     }
 
     onMounted(() => {
       // 自动聚焦
       refAtInput.value.focus()
-      // 监听光标移动
-      document.addEventListener('selectionchange', selectionchange, true)
-
       state.observer = new MutationObserver(function (mutationsList) {
         // 添加的元素
         const addElements = Array.from(mutationsList.map(e => Array.from(e.addedNodes))).flat().filter(e => (e as HTMLElement).tagName) as Array<HTMLElement>
@@ -279,8 +193,7 @@ export default defineComponent({
         addOthers.forEach(element => element.remove())
         // 添加 @
         addAtIds.forEach(id => !state.atIds.includes(id) && state.atIds.push(id))
-
-        // 删除的元素
+        // 删除的元素  
         const delElements = Array.from(mutationsList.map(e => Array.from(e.removedNodes))).flat().filter(e => (e as HTMLElement).tagName) as Array<HTMLElement>
         const delAtIds = delElements.filter(e => (e.tagName === 'SPAN') && (e.className === className)).map(e => e.dataset.id) as Array<string>
         delAtIds.forEach(id => (state.atIds.indexOf(id) > -1) && state.atIds.splice(state.atIds.indexOf(id), 1))
@@ -289,18 +202,10 @@ export default defineComponent({
     })
 
     onBeforeUnmount(() => {
-      document.removeEventListener('selectionchange', selectionchange)
       state.observer.disconnect()
     })
-    // 点击 @姓名 选中 @姓名
-    const click = (e: MouseEvent) => {
-      if (((e.target as HTMLElement).className === className)) {
-        window.getSelection()?.getRangeAt(0).selectNode(e.target as Node)
-      }
-    }
     return {
       state,
-      click,
       atedList,
       unAtList,
       selectAt,
