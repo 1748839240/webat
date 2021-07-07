@@ -37,8 +37,7 @@
               </el-card>
             </template>
             <template #reference>
-              <div id="atInput" ref="refAtInput" contenteditable="plaintext-only" @input="inputing"
-                @compositionend="inputing" />
+              <div id="atInput" ref="refAtInput" contenteditable @input="inputing" @click="click" />
             </template>
           </el-popover>
           <div v-if="!state.inputing" class="placeholder" @click.stop="() => refAtInput.focus()">
@@ -190,7 +189,7 @@ export default defineComponent({
         // 添加的其他元素
         const addOthers = addElements.filter(e => !((e.tagName === 'SPAN') && (e.className === className)))
         // 删除其他元素防止XSS攻击
-        addOthers.forEach(element => element.remove())
+        // addOthers.forEach(element => element.remove())
         // 添加 @
         addAtIds.forEach(id => !state.atIds.includes(id) && state.atIds.push(id))
         // 删除的元素  
@@ -204,8 +203,15 @@ export default defineComponent({
     onBeforeUnmount(() => {
       state.observer.disconnect()
     })
+
+    const click = (e: MouseEvent) => {
+      if ((e.target as HTMLElement).className = className) {
+        window.getSelection()?.getRangeAt(0).selectNode(e.target as HTMLElement)
+      }
+    }
     return {
       state,
+      click,
       atedList,
       unAtList,
       selectAt,
