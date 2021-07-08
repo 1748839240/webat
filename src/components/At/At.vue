@@ -205,9 +205,9 @@ export default defineComponent({
     })
 
     const click = (e: MouseEvent) => {
-      if ((e.target as HTMLElement).className = className) {
-        window.getSelection()?.getRangeAt(0).selectNode(e.target as HTMLElement)
-      }
+      // if ((e.target as HTMLElement).className = className) {
+      //   window.getSelection()?.getRangeAt(0).selectNode(e.target as HTMLElement)
+      // }
     }
     return {
       state,
