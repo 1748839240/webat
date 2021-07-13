@@ -1,28 +1,21 @@
-# Vue 3 + Typescript + Vite
+# 前端实现@功能
 
-This template should help get you started developing with Vue 3 and Typescript in Vite.
+## 实现功能
+* 在文字任意任意地方输入@都会弹出选择人员弹窗
+* 选择人员后展示 @名称 ，并显示自定义颜色
+* 修改/删除 @名称 中的任意一个字符，删除 @名称
+* 光标不可游走 @名称 其中
+* @名称 只能整体被选中
+* @选择人员实时映射到数据
+* XSS注意同时仅允许用户通过输入、粘贴饿形式修改输入内容（通过console、element面板修改无效）
 
-## Recommended IDE Setup
+## 项目架构
 
-[VSCode](https://code.visualstudio.com/) + [Vetur](https://marketplace.visualstudio.com/items?itemName=octref.vetur). Make sure to enable `vetur.experimental.templateInterpolationService` in settings!
+vite + vue3 + typescript + ElementPlus
 
-### If Using `<script setup>`
+## 核心实现
 
-[`<script setup>`](https://github.com/vuejs/rfcs/pull/227) is a feature that is currently in RFC stage. To get proper IDE support for the syntax, use [Volar](https://marketplace.visualstudio.com/items?itemName=johnsoncodehk.volar) instead of Vetur (and disable Vetur).
-
-## Type Support For `.vue` Imports in TS
-
-Since TypeScript cannot handle type information for `.vue` imports, they are shimmed to be a generic Vue component type by default. In most cases this is fine if you don't really care about component prop types outside of templates. However, if you wish to get actual prop types in `.vue` imports (for example to get props validation when using manual `h(...)` calls), you can use the following:
-
-### If Using Volar
-
-Run `Volar: Switch TS Plugin on/off` from VSCode command palette.
-
-### If Using Vetur
-
-1. Install and add `@vuedx/typescript-plugin-vue` to the [plugins section](https://www.typescriptlang.org/tsconfig#plugins) in `tsconfig.json`
-2. Delete `src/shims-vue.d.ts` as it is no longer needed to provide module info to Typescript
-3. Open `src/main.ts` in VSCode
-4. Open the VSCode command palette
-5. Search and run "Select TypeScript version" -> "Use workspace version"
+通过使用 dom contenteditable 功能实现对 div 的可编辑。
+使用 Selection 和 Range API 对选中和光标进行操作
+使用 MutationObserver 实现数据映射和防篡改
 # webatvite
