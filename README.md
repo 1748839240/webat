@@ -11,11 +11,11 @@
 
 ## 项目架构
 
-vite + vue3 + typescript + ElementPlus
+vue3 + typescript + element
 
 ## 核心实现
 
 通过使用 dom contenteditable 功能实现对 div 的可编辑。
 使用 Selection 和 Range API 对选中和光标进行操作
 使用 MutationObserver 实现数据映射和防篡改
-# webatvite
+# webat
