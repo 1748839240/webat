@@ -48,9 +48,13 @@
       </el-card>
     </div>
     <div class="atedList">
-      <el-card header="已选人员">
+      <el-card header="已选人员" size="mini">
         <el-tag v-for="item in atedList" :key="item.id">{{ item.name }}</el-tag>
       </el-card>
+    </div>
+    <div class="send flex flex_sb flex_c_fs">
+      <el-card header="发送内容">{{ state.send || '请点击发送' }}</el-card>
+      <el-button @click="send">发送</el-button>
     </div>
   </div>
 </template>
@@ -65,6 +69,7 @@ export default defineComponent({
   setup() {
     const refAtInput = ref()
     const state = reactive({
+      send: '',
       inputing: "", // 实时输入内容
       focusNode: {} as Node, // 缓存光标所在节点
       focusOffset: 0, // 缓存光标所在位置
@@ -203,6 +208,9 @@ export default defineComponent({
     // }
 
     onMounted(() => {
+      if (localStorage.getItem('send')) {
+        refAtInput.value.innerHTML = state.inputing = localStorage.getItem('send') || ''
+      }
       // 自动聚焦
       refAtInput.value.focus()
       state.observer = new MutationObserver(mutationsList => {
@@ -236,7 +244,15 @@ export default defineComponent({
       state.observer.disconnect()
     })
 
+    // 点击发送
+    const send = () => {
+      state.send = refAtInput.value.innerHTML.trim()
+      console.log(refAtInput.value.innerHTML)
+      localStorage.setItem('send', state.send)
+    }
+
     return {
+      send,
       state,
       close,
       input,
