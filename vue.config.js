@@ -1,3 +1,3 @@
 module.exports = {
-  publicPath: '/at'
+  publicPath: '/app/at'
 }

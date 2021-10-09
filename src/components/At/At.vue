@@ -319,10 +319,8 @@ export default defineComponent({
 
 <style lang="scss" scoped>
 @import './at.scss';
-::v-deep {
-  .__at_span {
+:deep(.__at_span) {
     color: red;
     font-weight: bolder;
   }
-}
 </style>
